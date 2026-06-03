@@ -1,114 +1,154 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Prompt Saver Firebase</title>
+<meta charset="UTF-8">
+<title>Prompt Saver SaaS</title>
+
+<style>
+body {
+  font-family: Arial;
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+  background: #f6f7fb;
+}
+
+.card {
+  background: white;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+input, textarea {
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0;
+}
+
+button {
+  padding: 10px 14px;
+  margin: 5px 5px 5px 0;
+  border: none;
+  background: #2563eb;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+</style>
+
 </head>
 
 <body>
 
-<h2>Login</h2>
+<h1>🚀 Prompt Saver SaaS</h1>
 
-<input id="email" placeholder="Email">
-<input id="password" type="password" placeholder="Password">
+<!-- LOGIN -->
+<div class="card" id="authBox">
+  <h3>Login / Register</h3>
 
-<button onclick="register()">Register</button>
-<button onclick="login()">Login</button>
-<button onclick="logout()">Logout</button>
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
 
-<hr>
+  <button onclick="register()">Register</button>
+  <button onclick="login()">Login</button>
+</div>
 
-<textarea id="prompt"></textarea>
-<button onclick="savePrompt()">Save</button>
+<!-- APP -->
+<div id="appBox" style="display:none">
 
-<div id="list"></div>
+  <div class="top">
+    <p id="userInfo">User</p>
+    <button onclick="logout()">Logout</button>
+  </div>
 
-<script type="module">
+  <div class="card">
+    <textarea id="prompt" placeholder="Write your prompt..."></textarea>
+    <button onclick="savePrompt()">Save Prompt</button>
+  </div>
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { 
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  <h3>Your Prompts</h3>
+  <div id="list"></div>
 
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  where
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+</div>
 
-const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_DOMAIN",
-  projectId: "YOUR_ID",
-  appId: "YOUR_APP_ID"
-};
+<script>
+let currentUser = null;
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+/* ================= AUTH ================= */
 
-let user = null;
+async function register() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-/* AUTH */
-window.register = async () => {
-  await createUserWithEmailAndPassword(
-    auth,
-    email.value,
-    password.value
-  );
-};
-
-window.login = async () => {
-  await signInWithEmailAndPassword(
-    auth,
-    email.value,
-    password.value
-  );
-};
-
-window.logout = async () => {
-  await signOut(auth);
-};
-
-/* SAVE */
-window.savePrompt = async () => {
-  if (!user) return alert("Login first!");
-
-  await addDoc(collection(db, "prompts"), {
-    text: prompt.value,
-    userId: user.uid
+  const res = await fetch("http://localhost:3000/register", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({email, password})
   });
 
-  loadPrompts();
-};
-
-/* LOAD */
-async function loadPrompts() {
-  if (!user) return;
-
-  const q = query(collection(db, "prompts"), where("userId", "==", user.uid));
-  const snap = await getDocs(q);
-
-  list.innerHTML = "";
-
-  snap.forEach(doc => {
-    list.innerHTML += `<p>${doc.data().text}</p>`;
-  });
+  alert(await res.text());
 }
 
-/* AUTH STATE */
-onAuthStateChanged(auth, (u) => {
-  user = u;
-  if (u) loadPrompts();
-});
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
+  const res = await fetch("http://localhost:3000/login", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({email, password})
+  });
+
+  const data = await res.json();
+
+  if (data.userId) {
+    currentUser = data.userId;
+    document.getElementById("authBox").style.display = "none";
+    document.getElementById("appBox").style.display = "block";
+    loadPrompts();
+  }
+}
+
+async function logout() {
+  currentUser = null;
+  document.getElementById("authBox").style.display = "block";
+  document.getElementById("appBox").style.display = "none";
+}
+
+/* ================= PROMPTS ================= */
+
+async function savePrompt() {
+  const text = document.getElementById("prompt").value;
+
+  await fetch("http://localhost:3000/prompts", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({text, userId: currentUser})
+  });
+
+  document.getElementById("prompt").value = "";
+  loadPrompts();
+}
+
+async function loadPrompts() {
+  const res = await fetch(`http://localhost:3000/prompts?userId=${currentUser}`);
+  const data = await res.json();
+
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  data.forEach(p => {
+    list.innerHTML += `<div class="card">${p.text}</div>`;
+  });
+}
 </script>
 
 </body>
