@@ -2,88 +2,93 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Prompt Saver</title>
+<title>Prompt Saver Pro</title>
 
 <style>
 body {
-  font-family: Arial, sans-serif;
-  max-width: 800px;
+  font-family: Arial;
+  max-width: 850px;
   margin: 40px auto;
   padding: 20px;
   background: #f8fafc;
+  transition: 0.3s;
 }
 
-h1 {
-  color: #1e293b;
-}
+h1 { color: #1e293b; }
 
-textarea {
+textarea, input, select {
   width: 100%;
-  height: 120px;
   padding: 10px;
+  margin-top: 10px;
 }
 
 button {
   background: #2563eb;
   color: white;
   border: none;
-  padding: 10px 16px;
-  cursor: pointer;
-  border-radius: 6px;
+  padding: 10px 14px;
+  margin-top: 10px;
   margin-right: 5px;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
 .card {
   background: white;
   padding: 12px;
   margin-top: 12px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* DARK MODE */
+.dark {
+  background: #0f172a;
+  color: white;
+}
+
+.dark .card {
+  background: #1e293b;
 }
 </style>
 
 </head>
 <body>
 
-<h1>Prompt Saver</h1>
+<h1>Prompt Saver Pro 🚀</h1>
+
+<button onclick="toggleDark()">🌙 Dark Mode</button>
+<button onclick="exportPrompts()">⬇ Export</button>
+<input type="file" onchange="importPrompts(event)" />
+
+<input id="search" placeholder="Search prompts..." oninput="render()" />
+
+<select id="category">
+  <option value="AI">AI</option>
+  <option value="Coding">Coding</option>
+  <option value="Writing">Writing</option>
+</select>
 
 <textarea id="prompt" placeholder="Write your prompt..."></textarea>
-<br><br>
 
 <button onclick="savePrompt()">Save</button>
 
-<h2>Saved Prompts</h2>
+<h2>Saved Prompts (<span id="count">0</span>)</h2>
 <div id="list"></div>
 
 <script>
 let prompts = JSON.parse(localStorage.getItem("prompts") || "[]");
+let dark = JSON.parse(localStorage.getItem("dark") || "false");
 
-function copyPrompt(text) {
-  navigator.clipboard.writeText(text);
-  alert("Prompt copied!");
-}
-
-function render() {
-  const list = document.getElementById("list");
-  list.innerHTML = "";
-
-  prompts.forEach((p, i) => {
-    list.innerHTML += `
-      <div class="card">
-        ${p}
-        <br><br>
-        <button onclick="copyPrompt(\`${p}\`)">Copy</button>
-        <button onclick="deletePrompt(${i})">Delete</button>
-      </div>
-    `;
-  });
-}
+if (dark) document.body.classList.add("dark");
 
 function savePrompt() {
-  const value = document.getElementById("prompt").value;
-  if (!value) return;
+  const text = document.getElementById("prompt").value;
+  const category = document.getElementById("category").value;
 
-  prompts.push(value);
+  if (!text) return;
+
+  prompts.push({ text, category });
   localStorage.setItem("prompts", JSON.stringify(prompts));
 
   document.getElementById("prompt").value = "";
@@ -94,6 +99,60 @@ function deletePrompt(i) {
   prompts.splice(i, 1);
   localStorage.setItem("prompts", JSON.stringify(prompts));
   render();
+}
+
+function copyPrompt(text) {
+  navigator.clipboard.writeText(text);
+}
+
+function render() {
+  const search = document.getElementById("search").value.toLowerCase();
+  const list = document.getElementById("list");
+
+  list.innerHTML = "";
+
+  prompts
+    .filter(p => p.text.toLowerCase().includes(search))
+    .forEach((p, i) => {
+      list.innerHTML += `
+        <div class="card">
+          <b>[${p.category}]</b><br>
+          ${p.text}
+          <br><br>
+          <button onclick="copyPrompt(\`${p.text}\`)">Copy</button>
+          <button onclick="deletePrompt(${i})">Delete</button>
+        </div>
+      `;
+    });
+
+  document.getElementById("count").textContent = prompts.length;
+}
+
+function toggleDark() {
+  document.body.classList.toggle("dark");
+  localStorage.setItem("dark", document.body.classList.contains("dark"));
+}
+
+function exportPrompts() {
+  const blob = new Blob([JSON.stringify(prompts, null, 2)], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "prompts.json";
+  a.click();
+}
+
+function importPrompts(event) {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    prompts = JSON.parse(e.target.result);
+    localStorage.setItem("prompts", JSON.stringify(prompts));
+    render();
+  };
+
+  reader.readAsText(file);
 }
 
 render();
