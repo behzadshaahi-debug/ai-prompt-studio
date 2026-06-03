@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>AI Prompt Saver Pro</title>
+<title>Prompt Saver SaaS</title>
 
 <style>
 body {
@@ -11,47 +11,30 @@ body {
   margin: 40px auto;
   padding: 20px;
   background: #f8fafc;
-  transition: 0.3s;
 }
 
-h1 {
-  color: #1e293b;
-}
-
-input, textarea, select {
+input, textarea {
   width: 100%;
   padding: 10px;
-  margin-top: 10px;
-  margin-bottom: 10px;
+  margin: 6px 0;
 }
 
 button {
+  padding: 10px 14px;
+  margin: 5px 5px 5px 0;
   background: #2563eb;
   color: white;
   border: none;
-  padding: 10px 14px;
-  margin-top: 8px;
-  margin-right: 5px;
-  border-radius: 6px;
   cursor: pointer;
+  border-radius: 6px;
 }
 
 .card {
   background: white;
   padding: 12px;
-  margin-top: 12px;
+  margin-top: 10px;
   border-radius: 10px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-/* DARK MODE */
-.dark {
-  background: #0f172a;
-  color: white;
-}
-
-.dark .card {
-  background: #1e293b;
 }
 </style>
 
@@ -59,153 +42,145 @@ button {
 
 <body>
 
-<h1>AI Prompt Saver Pro 🚀</h1>
+<h1>🚀 Prompt Saver SaaS</h1>
 
-<button onclick="toggleDark()">🌙 Dark Mode</button>
-<button onclick="exportPrompts()">⬇ Export</button>
-<input type="file" onchange="importPrompts(event)" />
+<!-- AUTH UI -->
+<h2>Login</h2>
+<input id="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password">
 
-<br><br>
+<button onclick="register()">Register</button>
+<button onclick="login()">Login</button>
+<button onclick="logout()">Logout</button>
 
-<input id="search" placeholder="Search prompts..." oninput="render()" />
+<hr>
 
-<select id="category">
-  <option value="AI">AI</option>
-  <option value="Coding">Coding</option>
-  <option value="Writing">Writing</option>
-</select>
-
+<!-- APP UI -->
 <textarea id="prompt" placeholder="Write your prompt..."></textarea>
+<button onclick="savePrompt()">Save Prompt</button>
 
-<button onclick="savePrompt()">Save</button>
-<button onclick="generatePrompt()">🤖 Generate AI Prompt</button>
-
-<h2>Saved Prompts (<span id="count">0</span>)</h2>
+<h2>Saved Prompts</h2>
 <div id="list"></div>
 
-<script>
-let prompts = JSON.parse(localStorage.getItem("prompts") || "[]");
-let dark = JSON.parse(localStorage.getItem("dark") || "false");
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { 
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-if (dark) document.body.classList.add("dark");
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* SAVE */
-function savePrompt() {
+/* 🔥 Firebase Config */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_BUCKET",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+/* INIT */
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let currentUser = null;
+
+/* ===================== AUTH ===================== */
+
+window.register = async function () {
+  const email = emailEl().value;
+  const pass = passEl().value;
+
+  await createUserWithEmailAndPassword(auth, email, pass);
+};
+
+window.login = async function () {
+  const email = emailEl().value;
+  const pass = passEl().value;
+
+  await signInWithEmailAndPassword(auth, email, pass);
+};
+
+window.logout = async function () {
+  await signOut(auth);
+};
+
+/* ===================== FIRESTORE ===================== */
+
+window.savePrompt = async function () {
   const text = document.getElementById("prompt").value;
-  const category = document.getElementById("category").value;
 
-  if (!text) return;
+  if (!currentUser) {
+    alert("Please login first");
+    return;
+  }
 
-  prompts.push({
-    text,
-    category,
-    favorite: false
+  await addDoc(collection(db, "prompts"), {
+    text: text,
+    userId: currentUser.uid,
+    createdAt: Date.now()
   });
 
-  localStorage.setItem("prompts", JSON.stringify(prompts));
   document.getElementById("prompt").value = "";
+  loadPrompts();
+};
 
-  render();
-}
+/* ===================== LOAD DATA ===================== */
 
-/* DELETE */
-function deletePrompt(i) {
-  prompts.splice(i, 1);
-  localStorage.setItem("prompts", JSON.stringify(prompts));
-  render();
-}
+async function loadPrompts() {
+  if (!currentUser) return;
 
-/* COPY */
-function copyPrompt(text) {
-  navigator.clipboard.writeText(text);
-}
+  const q = query(collection(db, "prompts"), where("userId", "==", currentUser.uid));
+  const snap = await getDocs(q);
 
-/* FAVORITE */
-function toggleFavorite(i) {
-  prompts[i].favorite = !prompts[i].favorite;
-  localStorage.setItem("prompts", JSON.stringify(prompts));
-  render();
-}
-
-/* DARK MODE */
-function toggleDark() {
-  document.body.classList.toggle("dark");
-  localStorage.setItem("dark", document.body.classList.contains("dark"));
-}
-
-/* AI GENERATOR (simple mock) */
-function generatePrompt() {
-  const ideas = [
-    "Write a professional email",
-    "Create a landing page for a startup",
-    "Generate a Python automation script",
-    "Design a modern mobile app UI",
-    "Explain a complex topic simply"
-  ];
-
-  document.getElementById("prompt").value =
-    ideas[Math.floor(Math.random() * ideas.length)];
-}
-
-/* EXPORT */
-function exportPrompts() {
-  const blob = new Blob([JSON.stringify(prompts, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "prompts.json";
-  a.click();
-}
-
-/* IMPORT */
-function importPrompts(event) {
-  const file = event.target.files[0];
-  const reader = new FileReader();
-
-  reader.onload = function(e) {
-    prompts = JSON.parse(e.target.result);
-    localStorage.setItem("prompts", JSON.stringify(prompts));
-    render();
-  };
-
-  reader.readAsText(file);
-}
-
-/* RENDER */
-function render() {
-  const search = document.getElementById("search").value.toLowerCase();
   const list = document.getElementById("list");
-
   list.innerHTML = "";
 
-  prompts
-    .sort((a, b) => b.favorite - a.favorite)
-    .filter(p => p.text.toLowerCase().includes(search))
-    .forEach((p, i) => {
+  snap.forEach(doc => {
+    const p = doc.data();
 
-      list.innerHTML += `
-        <div class="card">
-          <b>[${p.category}]</b>
-          ${p.favorite ? " ⭐" : ""}
-          <br><br>
-
-          ${p.text}
-          <br><br>
-
-          <button onclick="copyPrompt(\`${p.text}\`)">Copy</button>
-          <button onclick="deletePrompt(${i})">Delete</button>
-          <button onclick="toggleFavorite(${i})">
-            ${p.favorite ? "★ Unfavorite" : "☆ Favorite"}
-          </button>
-        </div>
-      `;
-    });
-
-  document.getElementById("count").textContent = prompts.length;
+    list.innerHTML += `
+      <div class="card">
+        ${p.text}
+      </div>
+    `;
+  });
 }
 
-render();
+/* ===================== AUTH STATE ===================== */
+
+onAuthStateChanged(auth, (user) => {
+  currentUser = user;
+
+  if (user) {
+    loadPrompts();
+  } else {
+    document.getElementById("list").innerHTML = "";
+  }
+});
+
+/* helpers */
+function emailEl() {
+  return document.getElementById("email");
+}
+
+function passEl() {
+  return document.getElementById("password");
+}
+
 </script>
 
 </body>
