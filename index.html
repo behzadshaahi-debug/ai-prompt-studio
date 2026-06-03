@@ -30,6 +30,7 @@ button {
   padding: 10px 16px;
   cursor: pointer;
   border-radius: 6px;
+  margin-right: 5px;
 }
 
 .card {
@@ -57,13 +58,21 @@ button {
 <script>
 let prompts = JSON.parse(localStorage.getItem("prompts") || "[]");
 
+function copyPrompt(text) {
+  navigator.clipboard.writeText(text);
+  alert("Prompt copied!");
+}
+
 function render() {
   const list = document.getElementById("list");
   list.innerHTML = "";
+
   prompts.forEach((p, i) => {
     list.innerHTML += `
       <div class="card">
-        ${p}<br><br>
+        ${p}
+        <br><br>
+        <button onclick="copyPrompt(\`${p}\`)">Copy</button>
         <button onclick="deletePrompt(${i})">Delete</button>
       </div>
     `;
