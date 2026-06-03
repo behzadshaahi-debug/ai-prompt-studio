@@ -2,44 +2,57 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Prompt Saver SaaS</title>
+<title>Prompt Saver Pro Dashboard</title>
 
 <style>
 body {
   font-family: Arial;
   max-width: 900px;
-  margin: 40px auto;
+  margin: auto;
   padding: 20px;
-  background: #f8fafc;
+  background: #f6f7fb;
 }
 
 h1 {
-  margin-bottom: 10px;
+  text-align: center;
+}
+
+.hidden {
+  display: none;
+}
+
+.card {
+  background: white;
+  padding: 15px;
+  margin-top: 10px;
+  border-radius: 12px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
 }
 
 input, textarea {
   width: 100%;
   padding: 10px;
   margin: 6px 0;
-  box-sizing: border-box;
 }
 
 button {
   padding: 10px 14px;
   margin: 5px 5px 5px 0;
+  border: none;
   background: #2563eb;
   color: white;
-  border: none;
+  border-radius: 8px;
   cursor: pointer;
-  border-radius: 6px;
 }
 
-.card {
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   background: white;
-  padding: 12px;
-  margin-top: 10px;
+  padding: 10px;
   border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  margin-bottom: 15px;
 }
 </style>
 
@@ -49,24 +62,34 @@ button {
 
 <h1>🚀 Prompt Saver SaaS</h1>
 
-<!-- AUTH -->
-<h3>Authentication</h3>
+<!-- LOGIN SECTION -->
+<div id="authBox" class="card">
+  <h3>Login / Register</h3>
 
-<input id="email" placeholder="Email">
-<input id="password" type="password" placeholder="Password">
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
 
-<button onclick="register()">Register</button>
-<button onclick="login()">Login</button>
-<button onclick="logout()">Logout</button>
+  <button onclick="register()">Register</button>
+  <button onclick="login()">Login</button>
+</div>
 
-<hr>
+<!-- DASHBOARD -->
+<div id="appBox" class="hidden">
 
-<!-- APP -->
-<textarea id="prompt" placeholder="Write your prompt..."></textarea>
-<button onclick="savePrompt()">Save Prompt</button>
+  <div class="topbar">
+    <div id="userInfo">👤 Logged in</div>
+    <button onclick="logout()">Logout</button>
+  </div>
 
-<h2>Saved Prompts</h2>
-<div id="list"></div>
+  <div class="card">
+    <textarea id="prompt" placeholder="Write your prompt..."></textarea>
+    <button onclick="savePrompt()">Save Prompt</button>
+  </div>
+
+  <h3>Your Prompts</h3>
+  <div id="list"></div>
+
+</div>
 
 <script type="module">
 
@@ -88,17 +111,16 @@ import {
   where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* 🔥 YOUR FIREBASE CONFIG (FROM YOUR PROJECT) */
+/* 🔥 Firebase Config */
 const firebaseConfig = {
-  apiKey: "AIzaSyBHa_tOUJ4Mcksqnf5BTHKCrql-DqJRWac",
-  authDomain: "prompt-server-pro.firebaseapp.com",
-  projectId: "prompt-server-pro",
-  storageBucket: "prompt-server-pro.appspot.com",
-  messagingSenderId: "628065017292",
-  appId: "1:628065017292:web:c90311c5702738bb611169"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_BUCKET",
+  messagingSenderId: "YOUR_ID",
+  appId: "YOUR_APP_ID"
 };
 
-/* INIT */
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -107,38 +129,32 @@ let currentUser = null;
 
 /* ================= AUTH ================= */
 
-window.register = async function () {
-  const email = document.getElementById("email").value;
-  const pass = document.getElementById("password").value;
-
+window.register = async () => {
+  const email = emailEl().value;
+  const pass = passEl().value;
   await createUserWithEmailAndPassword(auth, email, pass);
 };
 
-window.login = async function () {
-  const email = document.getElementById("email").value;
-  const pass = document.getElementById("password").value;
-
+window.login = async () => {
+  const email = emailEl().value;
+  const pass = passEl().value;
   await signInWithEmailAndPassword(auth, email, pass);
 };
 
-window.logout = async function () {
+window.logout = async () => {
   await signOut(auth);
 };
 
-/* ================= SAVE PROMPT ================= */
+/* ================= SAVE ================= */
 
-window.savePrompt = async function () {
+window.savePrompt = async () => {
   const text = document.getElementById("prompt").value;
 
-  if (!currentUser) {
-    alert("Please login first");
-    return;
-  }
-
+  if (!currentUser) return alert("Login first!");
   if (!text) return;
 
   await addDoc(collection(db, "prompts"), {
-    text: text,
+    text,
     userId: currentUser.uid,
     createdAt: Date.now()
   });
@@ -147,22 +163,18 @@ window.savePrompt = async function () {
   loadPrompts();
 };
 
-/* ================= LOAD PROMPTS ================= */
+/* ================= LOAD ================= */
 
 async function loadPrompts() {
   if (!currentUser) return;
 
-  const q = query(
-    collection(db, "prompts"),
-    where("userId", "==", currentUser.uid)
-  );
-
+  const q = query(collection(db, "prompts"), where("userId", "==", currentUser.uid));
   const snap = await getDocs(q);
 
   const list = document.getElementById("list");
   list.innerHTML = "";
 
-  snap.forEach((doc) => {
+  snap.forEach(doc => {
     const p = doc.data();
 
     list.innerHTML += `
@@ -179,11 +191,27 @@ onAuthStateChanged(auth, (user) => {
   currentUser = user;
 
   if (user) {
+    document.getElementById("authBox").classList.add("hidden");
+    document.getElementById("appBox").classList.remove("hidden");
+
+    document.getElementById("userInfo").innerText =
+      "👤 " + user.email;
+
     loadPrompts();
   } else {
-    document.getElementById("list").innerHTML = "";
+    document.getElementById("authBox").classList.remove("hidden");
+    document.getElementById("appBox").classList.add("hidden");
   }
 });
+
+/* helpers */
+function emailEl() {
+  return document.getElementById("email");
+}
+
+function passEl() {
+  return document.getElementById("password");
+}
 
 </script>
 
