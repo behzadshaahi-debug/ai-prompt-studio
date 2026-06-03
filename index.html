@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Prompt Saver Pro Dashboard</title>
+<title>Prompt Saver SaaS</title>
 
 <style>
 body {
@@ -13,20 +13,12 @@ body {
   background: #f6f7fb;
 }
 
-h1 {
-  text-align: center;
-}
-
-.hidden {
-  display: none;
-}
-
 .card {
   background: white;
-  padding: 15px;
+  padding: 12px;
   margin-top: 10px;
-  border-radius: 12px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
 input, textarea {
@@ -45,14 +37,10 @@ button {
   cursor: pointer;
 }
 
-.topbar {
+.top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
-  padding: 10px;
-  border-radius: 10px;
-  margin-bottom: 15px;
 }
 </style>
 
@@ -62,8 +50,8 @@ button {
 
 <h1>🚀 Prompt Saver SaaS</h1>
 
-<!-- LOGIN SECTION -->
-<div id="authBox" class="card">
+<!-- LOGIN -->
+<div class="card" id="authBox">
   <h3>Login / Register</h3>
 
   <input id="email" placeholder="Email">
@@ -73,11 +61,11 @@ button {
   <button onclick="login()">Login</button>
 </div>
 
-<!-- DASHBOARD -->
-<div id="appBox" class="hidden">
+<!-- APP -->
+<div id="appBox" style="display:none">
 
-  <div class="topbar">
-    <div id="userInfo">👤 Logged in</div>
+  <div class="top">
+    <p id="userInfo">User</p>
     <button onclick="logout()">Logout</button>
   </div>
 
@@ -91,128 +79,76 @@ button {
 
 </div>
 
-<script type="module">
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  where
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-/* 🔥 Firebase Config */
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_BUCKET",
-  messagingSenderId: "YOUR_ID",
-  appId: "YOUR_APP_ID"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
+<script>
 let currentUser = null;
 
 /* ================= AUTH ================= */
 
-window.register = async () => {
-  const email = emailEl().value;
-  const pass = passEl().value;
-  await createUserWithEmailAndPassword(auth, email, pass);
-};
+async function register() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-window.login = async () => {
-  const email = emailEl().value;
-  const pass = passEl().value;
-  await signInWithEmailAndPassword(auth, email, pass);
-};
+  const res = await fetch("http://localhost:3000/register", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({email, password})
+  });
 
-window.logout = async () => {
-  await signOut(auth);
-};
+  alert(await res.text());
+}
 
-/* ================= SAVE ================= */
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-window.savePrompt = async () => {
+  const res = await fetch("http://localhost:3000/login", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({email, password})
+  });
+
+  const data = await res.json();
+
+  if (data.userId) {
+    currentUser = data.userId;
+    document.getElementById("authBox").style.display = "none";
+    document.getElementById("appBox").style.display = "block";
+    loadPrompts();
+  }
+}
+
+async function logout() {
+  currentUser = null;
+  document.getElementById("authBox").style.display = "block";
+  document.getElementById("appBox").style.display = "none";
+}
+
+/* ================= PROMPTS ================= */
+
+async function savePrompt() {
   const text = document.getElementById("prompt").value;
 
-  if (!currentUser) return alert("Login first!");
-  if (!text) return;
-
-  await addDoc(collection(db, "prompts"), {
-    text,
-    userId: currentUser.uid,
-    createdAt: Date.now()
+  await fetch("http://localhost:3000/prompts", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({text, userId: currentUser})
   });
 
   document.getElementById("prompt").value = "";
   loadPrompts();
-};
-
-/* ================= LOAD ================= */
+}
 
 async function loadPrompts() {
-  if (!currentUser) return;
-
-  const q = query(collection(db, "prompts"), where("userId", "==", currentUser.uid));
-  const snap = await getDocs(q);
+  const res = await fetch(`http://localhost:3000/prompts?userId=${currentUser}`);
+  const data = await res.json();
 
   const list = document.getElementById("list");
   list.innerHTML = "";
 
-  snap.forEach(doc => {
-    const p = doc.data();
-
-    list.innerHTML += `
-      <div class="card">
-        ${p.text}
-      </div>
-    `;
+  data.forEach(p => {
+    list.innerHTML += `<div class="card">${p.text}</div>`;
   });
 }
-
-/* ================= AUTH STATE ================= */
-
-onAuthStateChanged(auth, (user) => {
-  currentUser = user;
-
-  if (user) {
-    document.getElementById("authBox").classList.add("hidden");
-    document.getElementById("appBox").classList.remove("hidden");
-
-    document.getElementById("userInfo").innerText =
-      "👤 " + user.email;
-
-    loadPrompts();
-  } else {
-    document.getElementById("authBox").classList.remove("hidden");
-    document.getElementById("appBox").classList.add("hidden");
-  }
-});
-
-/* helpers */
-function emailEl() {
-  return document.getElementById("email");
-}
-
-function passEl() {
-  return document.getElementById("password");
-}
-
 </script>
 
 </body>
