@@ -2,24 +2,27 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Prompt Saver Pro</title>
+<title>AI Prompt Saver Pro</title>
 
 <style>
 body {
   font-family: Arial;
-  max-width: 850px;
+  max-width: 900px;
   margin: 40px auto;
   padding: 20px;
   background: #f8fafc;
   transition: 0.3s;
 }
 
-h1 { color: #1e293b; }
+h1 {
+  color: #1e293b;
+}
 
-textarea, input, select {
+input, textarea, select {
   width: 100%;
   padding: 10px;
   margin-top: 10px;
+  margin-bottom: 10px;
 }
 
 button {
@@ -27,7 +30,7 @@ button {
   color: white;
   border: none;
   padding: 10px 14px;
-  margin-top: 10px;
+  margin-top: 8px;
   margin-right: 5px;
   border-radius: 6px;
   cursor: pointer;
@@ -53,13 +56,16 @@ button {
 </style>
 
 </head>
+
 <body>
 
-<h1>Prompt Saver Pro 🚀</h1>
+<h1>AI Prompt Saver Pro 🚀</h1>
 
 <button onclick="toggleDark()">🌙 Dark Mode</button>
 <button onclick="exportPrompts()">⬇ Export</button>
 <input type="file" onchange="importPrompts(event)" />
+
+<br><br>
 
 <input id="search" placeholder="Search prompts..." oninput="render()" />
 
@@ -72,6 +78,7 @@ button {
 <textarea id="prompt" placeholder="Write your prompt..."></textarea>
 
 <button onclick="savePrompt()">Save</button>
+<button onclick="generatePrompt()">🤖 Generate AI Prompt</button>
 
 <h2>Saved Prompts (<span id="count">0</span>)</h2>
 <div id="list"></div>
@@ -82,66 +89,76 @@ let dark = JSON.parse(localStorage.getItem("dark") || "false");
 
 if (dark) document.body.classList.add("dark");
 
+/* SAVE */
 function savePrompt() {
   const text = document.getElementById("prompt").value;
   const category = document.getElementById("category").value;
 
   if (!text) return;
 
-  prompts.push({ text, category });
-  localStorage.setItem("prompts", JSON.stringify(prompts));
+  prompts.push({
+    text,
+    category,
+    favorite: false
+  });
 
+  localStorage.setItem("prompts", JSON.stringify(prompts));
   document.getElementById("prompt").value = "";
+
   render();
 }
 
+/* DELETE */
 function deletePrompt(i) {
   prompts.splice(i, 1);
   localStorage.setItem("prompts", JSON.stringify(prompts));
   render();
 }
 
+/* COPY */
 function copyPrompt(text) {
   navigator.clipboard.writeText(text);
 }
 
-function render() {
-  const search = document.getElementById("search").value.toLowerCase();
-  const list = document.getElementById("list");
-
-  list.innerHTML = "";
-
-  prompts
-    .filter(p => p.text.toLowerCase().includes(search))
-    .forEach((p, i) => {
-      list.innerHTML += `
-        <div class="card">
-          <b>[${p.category}]</b><br>
-          ${p.text}
-          <br><br>
-          <button onclick="copyPrompt(\`${p.text}\`)">Copy</button>
-          <button onclick="deletePrompt(${i})">Delete</button>
-        </div>
-      `;
-    });
-
-  document.getElementById("count").textContent = prompts.length;
+/* FAVORITE */
+function toggleFavorite(i) {
+  prompts[i].favorite = !prompts[i].favorite;
+  localStorage.setItem("prompts", JSON.stringify(prompts));
+  render();
 }
 
+/* DARK MODE */
 function toggleDark() {
   document.body.classList.toggle("dark");
   localStorage.setItem("dark", document.body.classList.contains("dark"));
 }
 
+/* AI GENERATOR (simple mock) */
+function generatePrompt() {
+  const ideas = [
+    "Write a professional email",
+    "Create a landing page for a startup",
+    "Generate a Python automation script",
+    "Design a modern mobile app UI",
+    "Explain a complex topic simply"
+  ];
+
+  document.getElementById("prompt").value =
+    ideas[Math.floor(Math.random() * ideas.length)];
+}
+
+/* EXPORT */
 function exportPrompts() {
-  const blob = new Blob([JSON.stringify(prompts, null, 2)], {type: "application/json"});
+  const blob = new Blob([JSON.stringify(prompts, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
+
   const a = document.createElement("a");
   a.href = url;
   a.download = "prompts.json";
   a.click();
 }
 
+/* IMPORT */
 function importPrompts(event) {
   const file = event.target.files[0];
   const reader = new FileReader();
@@ -153,6 +170,39 @@ function importPrompts(event) {
   };
 
   reader.readAsText(file);
+}
+
+/* RENDER */
+function render() {
+  const search = document.getElementById("search").value.toLowerCase();
+  const list = document.getElementById("list");
+
+  list.innerHTML = "";
+
+  prompts
+    .sort((a, b) => b.favorite - a.favorite)
+    .filter(p => p.text.toLowerCase().includes(search))
+    .forEach((p, i) => {
+
+      list.innerHTML += `
+        <div class="card">
+          <b>[${p.category}]</b>
+          ${p.favorite ? " ⭐" : ""}
+          <br><br>
+
+          ${p.text}
+          <br><br>
+
+          <button onclick="copyPrompt(\`${p.text}\`)">Copy</button>
+          <button onclick="deletePrompt(${i})">Delete</button>
+          <button onclick="toggleFavorite(${i})">
+            ${p.favorite ? "★ Unfavorite" : "☆ Favorite"}
+          </button>
+        </div>
+      `;
+    });
+
+  document.getElementById("count").textContent = prompts.length;
 }
 
 render();
